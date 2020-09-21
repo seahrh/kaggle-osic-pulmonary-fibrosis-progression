@@ -5,7 +5,12 @@ setup(
     name="kaggle-osic-pfp",
     version=__version__,
     python_requires="~=3.7",
-    install_requires=["pandas~=1.1.1", "tensorflow~=2.3.0", "pyarrow~=0.16.0"],
+    install_requires=[
+        "pandas~=1.1.1",
+        "tensorflow~=2.3.0",
+        "pyarrow~=0.16.0",
+        "pydicom~=2.0.0",
+    ],
     extras_require={
         "tests": [
             "black~=19.10b0",
