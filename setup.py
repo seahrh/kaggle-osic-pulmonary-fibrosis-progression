@@ -7,6 +7,7 @@ setup(
     python_requires="~=3.7",
     install_requires=[
         "pandas~=1.1.1",
+        "scikit-learn~=0.23.2",
         "tensorflow~=2.3.0",
         "pyarrow~=0.16.0",
         "pydicom~=2.0.0",
