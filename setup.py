@@ -6,6 +6,7 @@ setup(
     version=__version__,
     python_requires="~=3.7",
     install_requires=[
+        "lightgbm~=2.3.1",
         "pandas~=1.1.1",
         "scikit-learn~=0.23.2",
         "tensorflow~=2.3.0",
