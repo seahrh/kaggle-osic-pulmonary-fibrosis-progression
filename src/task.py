@@ -1,12 +1,13 @@
 import argparse
 import logging
 import sys
-
+import os
 import pandas as pd
 import tensorflow as tf
 from google.cloud.logging.handlers import ContainerEngineHandler
 from sklearn.model_selection import GroupKFold
 from tensorflow import keras
+from tensorflow.python.lib.io import file_io
 
 formatter = logging.Formatter("%(message)s")
 handler = ContainerEngineHandler(stream=sys.stderr)
@@ -133,14 +134,14 @@ def _model(dropout, lr):
     return model
 
 
-def _callbacks(job_dir):
+def _callbacks(job_dir, filepath):
     return [
         keras.callbacks.ReduceLROnPlateau(
             monitor="val_loss", patience=2, verbose=1, factor=0.5
         ),
         keras.callbacks.EarlyStopping(monitor="val_loss", patience=4),
         keras.callbacks.ModelCheckpoint(
-            filepath=f"{job_dir}/best_model.h5", monitor="val_loss", save_best_only=True
+            filepath=filepath, monitor="val_loss", save_best_only=True
         ),
         keras.callbacks.TensorBoard(
             log_dir=job_dir,
@@ -152,6 +153,12 @@ def _callbacks(job_dir):
             embeddings_freq=0,
         ),
     ]
+
+
+def _save_model_in_gcs(job_dir, filepath) -> None:
+    with file_io.FileIO(filepath, mode="rb") as inp:
+        with file_io.FileIO(os.path.join(job_dir, filepath), mode="wb+") as out:
+            out.write(inp.read())
 
 
 def _main(argv=None):
@@ -168,12 +175,15 @@ def _main(argv=None):
     val_gen = _data_gen(val, args.data_dir, args.batch_size, shuffle=False)
     model = _model(dropout=args.dropout, lr=lr)
     model.summary()
+    filepath = "best_model.h5"
     history = model.fit(
         train_gen,
         epochs=args.epochs,
         validation_data=val_gen,
-        callbacks=_callbacks(args.job_dir),
+        callbacks=_callbacks(args.job_dir, filepath),
     )
+    _save_model_in_gcs(args.job_dir, filepath)
+    log.info(f"Saved model in {args.job_dir}")
     df = pd.DataFrame(history.history)
     df["epoch"] = history.epoch
     path = f"{args.job_dir}/history.csv"
