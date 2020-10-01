@@ -18,7 +18,7 @@ log.addHandler(handler)
 log.setLevel("INFO")
 
 
-MODEL = "efficientnetb0"
+MODEL = "efficientnetb4"
 TARGET = ["fvc_last_3", "fvc_last_2", "fvc_last_1"]
 CONF = {
     "efficientnetb0": {"resolution": 224, "output_size": 1280},
@@ -108,7 +108,7 @@ def _data_gen(dataframe, directory, batch_size, shuffle=False):
 
 
 def _model(dropout, lr):
-    pretrained = keras.applications.EfficientNetB0(
+    pretrained = keras.applications.EfficientNetB4(
         include_top=False, input_shape=INPUT_SHAPE, pooling="max", weights="imagenet"
     )
     pretrained.trainable = False
