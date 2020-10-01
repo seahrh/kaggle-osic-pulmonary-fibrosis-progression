@@ -1,10 +1,10 @@
 steps:
   - id: get_dataset
-    name: 'gcr.io/cloud-builders/gcloud'
+    name: 'gcr.io/cloud-builders/gsutil'
     volumes:
       - name: 'data'
         path: '/data'
-    args: [ 'gsutil', '-m', 'cp', '-r', 'gs://osic-pulmonary-fibrosis-asia-southeast1/data/*', '/data' ]
+    args: [ '-m', 'cp', '-r', 'gs://osic-pulmonary-fibrosis-asia-southeast1/data/*', '/data' ]
   - id: docker_build
     name: 'gcr.io/cloud-builders/docker'
     volumes:
