@@ -30,7 +30,6 @@ RUN echo '[GoogleCompute]\nservice_account = default' > /etc/boto.cfg
 
 COPY src src
 COPY *.py ./
-COPY *.ini ./
 
 RUN python3.7 --version \
     && python3.7 -m pip install --upgrade pip setuptools wheel \
