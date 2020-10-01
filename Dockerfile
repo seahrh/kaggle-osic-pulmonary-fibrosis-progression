@@ -1,5 +1,6 @@
 FROM nvidia/cuda:10.1-cudnn7-runtime
 WORKDIR /app
+COPY input/processed input/processed
 
 # Installs necessary dependencies.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -28,13 +29,12 @@ ENV PATH $PATH:/root/tools/google-cloud-sdk/bin
 # Make sure gsutil will use the default service account
 RUN echo '[GoogleCompute]\nservice_account = default' > /etc/boto.cfg
 
-COPY input/processed input/processed
 COPY src src
 COPY *.py ./
 
-RUN python3.7 --version \
-    && python3.7 -m pip install --upgrade pip setuptools wheel \
-    && pip install . \
-    && pip list
+RUN python3.7 --version && \
+    python3.7 -m pip install --upgrade pip setuptools wheel && \
+    pip install . && \
+    pip list
 
 ENTRYPOINT ["python3.7", "src/task.py"]

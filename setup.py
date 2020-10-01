@@ -11,6 +11,7 @@ setup(
         "google-cloud-storage~=1.27.0",
         "lightgbm~=2.3.1",
         "pandas~=1.1.1",
+        "Pillow~=7.2.0",
         "pyarrow~=0.16.0",
         "pydicom~=2.0.0",
         "scikit-learn~=0.23.2",
