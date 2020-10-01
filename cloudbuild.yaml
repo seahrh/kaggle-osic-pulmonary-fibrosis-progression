@@ -1,6 +1,6 @@
 steps:
   - id: get_dataset
-    name: '	gcr.io/cloud-builders/gcloud'
+    name: 'gcr.io/cloud-builders/gcloud'
     volumes:
       - name: 'data'
         path: '/data'
