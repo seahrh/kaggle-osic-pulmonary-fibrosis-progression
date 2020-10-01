@@ -1,0 +1,9 @@
+steps:
+  - id: docker_build
+    name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', '${_IMAGE_NAME}:${_IMAGE_TAG}', '.']
+
+images: ['${_IMAGE_NAME}:${_IMAGE_TAG}']
+substitutions:
+  _IMAGE_NAME: 'asia.gcr.io/kagglemuggle/osic-pulmonary-fibrosis'
+  _IMAGE_TAG: '1.0'

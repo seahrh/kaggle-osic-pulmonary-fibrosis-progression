@@ -6,12 +6,15 @@ setup(
     version=__version__,
     python_requires="~=3.7",
     install_requires=[
+        "gcsfs~=0.6.1",
+        "google-cloud-logging~=1.15.0",
+        "google-cloud-storage~=1.27.0",
         "lightgbm~=2.3.1",
         "pandas~=1.1.1",
-        "scikit-learn~=0.23.2",
-        "tensorflow~=2.3.0",
         "pyarrow~=0.16.0",
         "pydicom~=2.0.0",
+        "scikit-learn~=0.23.2",
+        "tensorflow~=2.3.0",
     ],
     extras_require={
         "tests": [

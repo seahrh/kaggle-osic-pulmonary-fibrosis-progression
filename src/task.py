@@ -1,0 +1,200 @@
+import argparse
+import logging
+import sys
+from google.cloud.logging.handlers import ContainerEngineHandler
+import pandas as pd
+import sklearn
+import tensorflow as tf
+from tensorflow import keras
+from google.cloud import storage
+
+
+formatter = logging.Formatter("%(message)s")
+handler = ContainerEngineHandler(stream=sys.stderr)
+handler.setFormatter(formatter)
+handler.setLevel("INFO")
+log = logging.getLogger()
+log.addHandler(handler)
+log.setLevel("INFO")
+
+
+MODEL = "efficientnetb0"
+TARGET = ["fvc_last_3", "fvc_last_2", "fvc_last_1"]
+CONF = {
+    "efficientnetb0": {"resolution": 224, "output_size": 1280},
+    "efficientnetb1": {"resolution": 240, "output_size": 0},
+    "efficientnetb2": {"resolution": 260, "output_size": 1408},
+    "efficientnetb3": {"resolution": 300, "output_size": 1536},
+    "efficientnetb4": {"resolution": 380, "output_size": 1792},
+    "efficientnetb5": {"resolution": 456, "output_size": 2048},
+    "efficientnetb6": {"resolution": 528, "output_size": 2304},
+    "efficientnetb7": {"resolution": 600, "output_size": 2560},
+}
+INPUT_SHAPE = (CONF[MODEL]["resolution"], CONF[MODEL]["resolution"], 3)
+
+
+def _parse(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--job-dir", dest="job_dir", required=True, help="path to job directory"
+    )
+    parser.add_argument(
+        "--data_dir",
+        dest="data_dir",
+        required=True,
+        help="path to training dataset directory",
+    )
+    parser.add_argument(
+        "--project_name",
+        dest="project_name",
+        required=True,
+        help="GCP project that owns the GCS bucket",
+    )
+    parser.add_argument(
+        "--bucket_name",
+        dest="bucket_name",
+        required=True,
+        help="GCS bucket that contains the pretrained model",
+    )
+    parser.add_argument(
+        "--dropout",
+        dest="dropout",
+        default=0.1,
+        type=float,
+        help="Training probability of dropout",
+    )
+    parser.add_argument(
+        "--epochs", dest="epochs", default=1, type=int, help="Training number of epochs"
+    )
+    parser.add_argument(
+        "--batch_size",
+        dest="batch_size",
+        default=32,
+        type=int,
+        help="Training batch size",
+    )
+    parser.add_argument(
+        "--folds",
+        dest="folds",
+        default=10,
+        type=int,
+        help="Number of folds for cross-validation",
+    )
+    parser.add_argument(
+        "--learning_rate", dest="learning_rate", default="1e-3", help="Learning rate"
+    )
+    args, unknown_args = parser.parse_known_args(argv)
+    return args, unknown_args
+
+
+def _split(data, folds):
+    spl = sklearn.model_selection.GroupKFold(n_splits=folds)
+    x = data["img"]
+    y = data[TARGET]
+    groups = data["pid"]
+    train = val = None
+    i = 0
+    for train_indices, test_indices in spl.split(x, y, groups):
+        if i != 0:
+            break
+        train = data.iloc[train_indices]
+        val = data.iloc[test_indices]
+        i += 1
+    return train, val
+
+
+def _data_gen(dataframe, directory, batch_size, shuffle=False):
+    target_size = (INPUT_SHAPE[0], INPUT_SHAPE[1])
+    color_mode = "rgb"
+    class_mode = "multi_output"
+    idg = keras.preprocessing.image.ImageDataGenerator()
+    return idg.flow_from_dataframe(
+        dataframe=dataframe,
+        x_col="img",
+        y_col=TARGET,
+        directory=directory,
+        target_size=target_size,
+        color_mode=color_mode,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        class_mode=class_mode,
+    )
+
+
+def _model(dropout, lr):
+    pretrained = keras.applications.EfficientNetB0(
+        include_top=False, input_shape=INPUT_SHAPE, pooling="max", weights="imagenet"
+    )
+    pretrained.trainable = False
+    kernel_initializer = keras.initializers.he_normal()
+    kernel_regularizer = keras.regularizers.l2(0.01)
+    model = keras.models.Sequential()
+    model.add(pretrained)
+    model.add(keras.layers.BatchNormalization())
+    model.add(
+        keras.layers.Dense(
+            CONF[MODEL]["output_size"],
+            activation="relu",
+            kernel_initializer=kernel_initializer,
+            kernel_regularizer=kernel_regularizer,
+        )
+    )
+    model.add(keras.layers.Dropout(dropout))
+    model.add(keras.layers.Dense(len(TARGET), name="output"))
+    optimizer = keras.optimizers.Adam(learning_rate=lr)
+    loss = keras.losses.MeanSquaredLogarithmicError()
+    rmse = keras.metrics.RootMeanSquaredError()
+    model.compile(loss=loss, optimizer=optimizer, metrics=[rmse])
+    return model
+
+
+def _callbacks(job_dir):
+    return [
+        keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss", patience=2, verbose=1, factor=0.5
+        ),
+        keras.callbacks.EarlyStopping(monitor="val_loss", patience=4),
+        keras.callbacks.ModelCheckpoint(
+            filepath=f"{job_dir}/best_model.h5", monitor="val_loss", save_best_only=True
+        ),
+        keras.callbacks.TensorBoard(
+            log_dir=job_dir,
+            histogram_freq=1,
+            write_graph=True,
+            write_images=False,
+            update_freq="epoch",
+            profile_batch=0,
+            embeddings_freq=0,
+        ),
+    ]
+
+
+def _main(argv=None):
+    gpus = tf.config.experimental.list_physical_devices("GPU")
+    log.info(f"gpus={gpus}")
+    if len(gpus) == 0:
+        raise RuntimeError("Expecting at least one gpu but found none.")
+    args, unknown_args = _parse(argv)
+    log.info(f"args={args}\nunknown_args={unknown_args}")
+    lr = float(args.learning_rate)
+    data = pd.read_parquet(f"{args.data_dir}/train.parquet")
+    train, val = _split(data, args.folds)
+    train_gen = _data_gen(train, args.data_dir, args.batch_size, shuffle=True)
+    val_gen = _data_gen(val, args.data_dir, args.batch_size, shuffle=False)
+    model = _model(dropout=args.dropout, lr=lr)
+    model.summary()
+    history = model.fit(
+        train_gen,
+        epochs=args.epochs,
+        validation_data=val_gen,
+        callbacks=_callbacks(args.job_dir),
+    )
+    df = pd.DataFrame(history.history)
+    df["epoch"] = history.epoch
+    path = f"{args.job_dir}/history.csv"
+    df.to_csv(path, index=False)
+    log.info(f"Done! job_dir={args.job_dir}")
+
+
+if __name__ == "__main__":
+    _main()
