@@ -1,9 +1,18 @@
 steps:
+  - id: get_dataset
+    name: '	gcr.io/cloud-builders/gcloud'
+    volumes:
+      - name: 'data'
+        path: '/data'
+    args: [ 'gsutil', '-m', 'cp', '-r', 'gs://osic-pulmonary-fibrosis-asia-southeast1/data/*', '/data' ]
   - id: docker_build
     name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '${_IMAGE_NAME}:${_IMAGE_TAG}', '.']
+    volumes:
+      - name: 'data'
+        path: '/data'
+    args: [ 'build', '-t', '${_IMAGE_NAME}:${_IMAGE_TAG}', '.' ]
 
-images: ['${_IMAGE_NAME}:${_IMAGE_TAG}']
+images: [ '${_IMAGE_NAME}:${_IMAGE_TAG}' ]
 substitutions:
   _IMAGE_NAME: 'asia.gcr.io/kagglemuggle/osic-pulmonary-fibrosis'
   _IMAGE_TAG: '1.0'
