@@ -1,13 +1,12 @@
 import argparse
 import logging
 import sys
-from google.cloud.logging.handlers import ContainerEngineHandler
-import pandas as pd
-import sklearn
-import tensorflow as tf
-from tensorflow import keras
-from google.cloud import storage
 
+import pandas as pd
+import tensorflow as tf
+from google.cloud.logging.handlers import ContainerEngineHandler
+from sklearn.model_selection import GroupKFold
+from tensorflow import keras
 
 formatter = logging.Formatter("%(message)s")
 handler = ContainerEngineHandler(stream=sys.stderr)
@@ -74,7 +73,7 @@ def _parse(argv):
 
 
 def _split(data, folds):
-    spl = sklearn.model_selection.GroupKFold(n_splits=folds)
+    spl = GroupKFold(n_splits=folds)
     x = data["img"]
     y = data[TARGET]
     groups = data["pid"]
