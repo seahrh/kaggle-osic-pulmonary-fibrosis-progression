@@ -5,6 +5,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
          wget \
          curl \
+         zip \
+         unzip \
          python3.7-dev \
          python3-pip \
      && rm -rf /var/lib/apt/lists/*
@@ -28,13 +30,14 @@ ENV PATH $PATH:/root/tools/google-cloud-sdk/bin
 # Make sure gsutil will use the default service account
 RUN echo '[GoogleCompute]\nservice_account = default' > /etc/boto.cfg
 
-COPY /data data
 COPY src src
 COPY *.py ./
-
 RUN python3.7 --version \
     && python3.7 -m pip install --upgrade pip setuptools wheel \
     && pip install . \
     && pip list
+
+COPY /data/data.zip ./
+RUN unzip data.zip
 
 ENTRYPOINT ["python3.7", "src/task.py"]
