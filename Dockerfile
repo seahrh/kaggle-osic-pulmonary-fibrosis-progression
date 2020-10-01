@@ -37,7 +37,7 @@ RUN python3.7 --version \
     && pip install . \
     && pip list
 
-RUN gsutil -m gs://osic-pulmonary-fibrosis-asia-southeast1/data/data.zip . && \
+RUN gsutil -m cp gs://osic-pulmonary-fibrosis-asia-southeast1/data/data.zip . && \
     unzip data.zip
 
 ENTRYPOINT ["python3.7", "src/task.py"]
