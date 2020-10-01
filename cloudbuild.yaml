@@ -1,15 +1,6 @@
 steps:
-  - id: get_dataset
-    name: 'gcr.io/cloud-builders/gsutil'
-    volumes:
-      - name: 'data'
-        path: '/data'
-    args: [ '-m', 'cp', 'gs://osic-pulmonary-fibrosis-asia-southeast1/data/data.zip', '/data' ]
   - id: docker_build
     name: 'gcr.io/cloud-builders/docker'
-    volumes:
-      - name: 'data'
-        path: '/data'
     args: [ 'build', '-t', '${_IMAGE_NAME}:${_IMAGE_TAG}', '.' ]
 
 images: [ '${_IMAGE_NAME}:${_IMAGE_TAG}' ]
