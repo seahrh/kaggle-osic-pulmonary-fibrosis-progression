@@ -45,21 +45,9 @@ def _parse(argv):
         help="path to training dataset directory",
     )
     parser.add_argument(
-        "--project_name",
-        dest="project_name",
-        required=True,
-        help="GCP project that owns the GCS bucket",
-    )
-    parser.add_argument(
-        "--bucket_name",
-        dest="bucket_name",
-        required=True,
-        help="GCS bucket that contains the pretrained model",
-    )
-    parser.add_argument(
         "--dropout",
         dest="dropout",
-        default=0.1,
+        default=0.01,
         type=float,
         help="Training probability of dropout",
     )
@@ -80,9 +68,7 @@ def _parse(argv):
         type=int,
         help="Number of folds for cross-validation",
     )
-    parser.add_argument(
-        "--learning_rate", dest="learning_rate", default="1e-3", help="Learning rate"
-    )
+    parser.add_argument("--lr", dest="lr", default="1e-3", help="Learning rate")
     args, unknown_args = parser.parse_known_args(argv)
     return args, unknown_args
 
@@ -176,7 +162,7 @@ def _main(argv=None):
         raise RuntimeError("Expecting at least one gpu but found none.")
     args, unknown_args = _parse(argv)
     log.info(f"args={args}\nunknown_args={unknown_args}")
-    lr = float(args.learning_rate)
+    lr = float(args.lr)
     data = pd.read_parquet(f"{args.data_dir}/train.parquet")
     train, val = _split(data, args.folds)
     train_gen = _data_gen(train, args.data_dir, args.batch_size, shuffle=True)
