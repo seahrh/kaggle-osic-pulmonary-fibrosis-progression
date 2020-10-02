@@ -19,4 +19,5 @@ gcloud ai-platform jobs submit training "${JOB_NAME}" \
         --master-accelerator count=1,type=NVIDIA_TESLA_T4 \
         -- \
         --data_dir="${DATA_DIR}" \
-        --epochs="${EPOCHS}"
+        --epochs="${EPOCHS}" \
+        --lr="${LR}"
