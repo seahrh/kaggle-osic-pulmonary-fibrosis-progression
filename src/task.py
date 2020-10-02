@@ -137,9 +137,9 @@ def _model(dropout, lr):
 def _callbacks(job_dir, filepath):
     return [
         keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss", patience=1, verbose=1, factor=0.5
+            monitor="val_loss", patience=1, factor=0.5, verbose=1
         ),
-        keras.callbacks.EarlyStopping(monitor="val_loss", patience=4),
+        keras.callbacks.EarlyStopping(monitor="val_loss", patience=16, verbose=1),
         keras.callbacks.ModelCheckpoint(
             filepath=filepath, monitor="val_loss", save_best_only=True
         ),
