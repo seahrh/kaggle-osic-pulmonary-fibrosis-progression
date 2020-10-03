@@ -148,7 +148,45 @@ def _model(dropout, lr):
     return model
 
 
-def _callbacks(job_dir, filepath, rlr_patience: int, es_patience: int):
+class ModelCheckpointInGcs(keras.callbacks.ModelCheckpoint):
+    def __init__(
+        self,
+        filepath,
+        gcs_dir: str,
+        monitor="val_loss",
+        verbose=0,
+        save_best_only=False,
+        save_weights_only=False,
+        mode="auto",
+        save_freq="epoch",
+        options=None,
+        **kwargs,
+    ):
+        super().__init__(
+            filepath,
+            monitor=monitor,
+            verbose=verbose,
+            save_best_only=save_best_only,
+            save_weights_only=save_weights_only,
+            mode=mode,
+            save_freq=save_freq,
+            options=options,
+            **kwargs,
+        )
+        self._gcs_dir = gcs_dir
+
+    def _save_model(self, epoch, logs):
+        super()._save_model(epoch, logs)
+        filepath = self._get_file_path(epoch, logs)
+        if os.path.isfile(filepath):
+            with file_io.FileIO(filepath, mode="rb") as inp:
+                with file_io.FileIO(
+                    os.path.join(self._gcs_dir, filepath), mode="wb+"
+                ) as out:
+                    out.write(inp.read())
+
+
+def _callbacks(job_dir: str, filepath: str, rlr_patience: int, es_patience: int):
     return [
         keras.callbacks.ReduceLROnPlateau(
             monitor="val_loss", patience=rlr_patience, factor=0.5, verbose=1
@@ -156,8 +194,8 @@ def _callbacks(job_dir, filepath, rlr_patience: int, es_patience: int):
         keras.callbacks.EarlyStopping(
             monitor="val_loss", patience=es_patience, verbose=1
         ),
-        keras.callbacks.ModelCheckpoint(
-            filepath=filepath, monitor="val_loss", save_best_only=True
+        ModelCheckpointInGcs(
+            filepath=filepath, gcs_dir=job_dir, monitor="val_loss", save_best_only=True
         ),
         keras.callbacks.TensorBoard(
             log_dir=job_dir,
@@ -169,12 +207,6 @@ def _callbacks(job_dir, filepath, rlr_patience: int, es_patience: int):
             embeddings_freq=0,
         ),
     ]
-
-
-def _save_model_in_gcs(job_dir, filepath) -> None:
-    with file_io.FileIO(filepath, mode="rb") as inp:
-        with file_io.FileIO(os.path.join(job_dir, filepath), mode="wb+") as out:
-            out.write(inp.read())
 
 
 def _main(argv=None):
@@ -203,8 +235,6 @@ def _main(argv=None):
             es_patience=args.es_patience,
         ),
     )
-    _save_model_in_gcs(args.job_dir, filepath)
-    log.info(f"Saved model in {args.job_dir}")
     df = pd.DataFrame(history.history)
     df["epoch"] = history.epoch
     path = f"{args.job_dir}/history.csv"
