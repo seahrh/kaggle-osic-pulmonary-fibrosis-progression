@@ -68,6 +68,20 @@ def _parse(argv):
         type=int,
         help="Number of folds for cross-validation",
     )
+    parser.add_argument(
+        "--rlr_patience",
+        dest="rlr_patience",
+        default=1,
+        type=int,
+        help="ReduceLrOnPlateau patience",
+    )
+    parser.add_argument(
+        "--es_patience",
+        dest="es_patience",
+        default=2,
+        type=int,
+        help="EarlyStopping patience",
+    )
     parser.add_argument("--lr", dest="lr", default="1e-3", help="Learning rate")
     args, unknown_args = parser.parse_known_args(argv)
     return args, unknown_args
@@ -134,12 +148,14 @@ def _model(dropout, lr):
     return model
 
 
-def _callbacks(job_dir, filepath):
+def _callbacks(job_dir, filepath, rlr_patience: int, es_patience: int):
     return [
         keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss", patience=1, factor=0.5, verbose=1
+            monitor="val_loss", patience=rlr_patience, factor=0.5, verbose=1
         ),
-        keras.callbacks.EarlyStopping(monitor="val_loss", patience=16, verbose=1),
+        keras.callbacks.EarlyStopping(
+            monitor="val_loss", patience=es_patience, verbose=1
+        ),
         keras.callbacks.ModelCheckpoint(
             filepath=filepath, monitor="val_loss", save_best_only=True
         ),
@@ -180,7 +196,12 @@ def _main(argv=None):
         train_gen,
         epochs=args.epochs,
         validation_data=val_gen,
-        callbacks=_callbacks(args.job_dir, filepath),
+        callbacks=_callbacks(
+            args.job_dir,
+            filepath,
+            rlr_patience=args.rlr_patience,
+            es_patience=args.es_patience,
+        ),
     )
     _save_model_in_gcs(args.job_dir, filepath)
     log.info(f"Saved model in {args.job_dir}")
