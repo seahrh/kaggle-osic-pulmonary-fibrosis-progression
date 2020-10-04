@@ -1,6 +1,5 @@
 FROM nvidia/cuda:10.1-cudnn7-runtime
 WORKDIR /app
-COPY input/processed input/processed
 
 # Installs necessary dependencies.
 RUN apt-get update && apt-get install -y --no-install-recommends \

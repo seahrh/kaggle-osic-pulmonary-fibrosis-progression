@@ -39,6 +39,9 @@ def _parse(argv):
         "--job-dir", dest="job_dir", required=True, help="path to job directory"
     )
     parser.add_argument(
+        "--bucket", dest="bucket", required=True, help="GCS bucket name",
+    )
+    parser.add_argument(
         "--data_dir",
         dest="data_dir",
         required=True,
@@ -216,6 +219,10 @@ def _callbacks(job_dir: str, filepath: str, rlr_patience: int, es_patience: int)
     ]
 
 
+def _download_training_data(bucket: str, directory: str) -> None:
+    os.system(f"gsutil -m cp -r gs://{bucket}/{directory} .")
+
+
 def _main(argv=None):
     gpus = tf.config.experimental.list_physical_devices("GPU")
     log.info(f"gpus={gpus}")
@@ -224,6 +231,7 @@ def _main(argv=None):
     args, unknown_args = _parse(argv)
     log.info(f"args={args}\nunknown_args={unknown_args}")
     lr = float(args.lr)
+    _download_training_data(args.bucket, args.data_dir)
     data = pd.read_parquet(f"{args.data_dir}/train.parquet")
     train, val = _split(data, args.folds)
     train_gen = _data_gen(train, args.data_dir, args.batch_size, shuffle=True)
