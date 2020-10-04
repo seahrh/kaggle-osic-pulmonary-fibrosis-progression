@@ -83,6 +83,9 @@ def _parse(argv):
         help="EarlyStopping patience",
     )
     parser.add_argument("--lr", dest="lr", default="1e-3", help="Learning rate")
+    parser.add_argument(
+        "--pooling", dest="pooling", default="max", help="2D pooling: max, avg",
+    )
     args, unknown_args = parser.parse_known_args(argv)
     return args, unknown_args
 
@@ -121,9 +124,9 @@ def _data_gen(dataframe, directory, batch_size, shuffle=False):
     )
 
 
-def _model(dropout, lr):
+def _model(dropout, lr, pooling):
     pretrained = keras.applications.EfficientNetB4(
-        include_top=False, input_shape=INPUT_SHAPE, pooling="max", weights="imagenet"
+        include_top=False, input_shape=INPUT_SHAPE, pooling=pooling, weights="imagenet"
     )
     pretrained.trainable = False
     kernel_initializer = keras.initializers.he_normal()
@@ -195,7 +198,11 @@ def _callbacks(job_dir: str, filepath: str, rlr_patience: int, es_patience: int)
             monitor="val_loss", patience=es_patience, verbose=1
         ),
         ModelCheckpointInGcs(
-            filepath=filepath, gcs_dir=job_dir, monitor="val_loss", save_best_only=True
+            filepath=filepath,
+            gcs_dir=job_dir,
+            monitor="val_loss",
+            save_best_only=True,
+            verbose=1,
         ),
         keras.callbacks.TensorBoard(
             log_dir=job_dir,
@@ -221,7 +228,7 @@ def _main(argv=None):
     train, val = _split(data, args.folds)
     train_gen = _data_gen(train, args.data_dir, args.batch_size, shuffle=True)
     val_gen = _data_gen(val, args.data_dir, args.batch_size, shuffle=False)
-    model = _model(dropout=args.dropout, lr=lr)
+    model = _model(dropout=args.dropout, lr=lr, pooling=args.pooling)
     model.summary()
     filepath = "best_model.h5"
     history = model.fit(
