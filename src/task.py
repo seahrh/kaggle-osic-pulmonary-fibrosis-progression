@@ -8,6 +8,7 @@ from google.cloud.logging.handlers import ContainerEngineHandler
 from sklearn.model_selection import GroupKFold
 from tensorflow import keras
 from tensorflow.python.lib.io import file_io
+from typing import List
 
 formatter = logging.Formatter("%(message)s")
 handler = ContainerEngineHandler(stream=sys.stderr)
@@ -89,6 +90,12 @@ def _parse(argv):
     parser.add_argument(
         "--pooling", dest="pooling", default="max", help="2D pooling: max, avg",
     )
+    parser.add_argument(
+        "--hl_sizes",
+        dest="hl_sizes",
+        required=True,
+        help="comma delimited list of hidden layer sizes",
+    )
     args, unknown_args = parser.parse_known_args(argv)
     return args, unknown_args
 
@@ -127,7 +134,7 @@ def _data_gen(dataframe, directory, batch_size, shuffle=False):
     )
 
 
-def _model(dropout, lr, pooling):
+def _model(dropout: float, lr: float, pooling: str, hidden_layer_sizes: List[int]):
     pretrained = keras.applications.EfficientNetB4(
         include_top=False, input_shape=INPUT_SHAPE, pooling=pooling, weights="imagenet"
     )
@@ -136,16 +143,18 @@ def _model(dropout, lr, pooling):
     kernel_regularizer = keras.regularizers.l2(0.01)
     model = keras.models.Sequential()
     model.add(pretrained)
-    model.add(keras.layers.BatchNormalization())
-    model.add(
-        keras.layers.Dense(
-            CONF[MODEL]["output_size"],
-            activation="relu",
-            kernel_initializer=kernel_initializer,
-            kernel_regularizer=kernel_regularizer,
+    for i in range(len(hidden_layer_sizes)):
+        model.add(keras.layers.BatchNormalization())
+        model.add(
+            keras.layers.Dense(
+                hidden_layer_sizes[i],
+                activation="relu",
+                kernel_initializer=kernel_initializer,
+                kernel_regularizer=kernel_regularizer,
+                name=f"Dense{i + 1}",
+            )
         )
-    )
-    model.add(keras.layers.Dropout(dropout))
+        model.add(keras.layers.Dropout(dropout))
     model.add(keras.layers.Dense(len(TARGET), name="output"))
     optimizer = keras.optimizers.Adam(learning_rate=lr)
     loss = keras.losses.MeanSquaredLogarithmicError()
@@ -231,12 +240,15 @@ def _main(argv=None):
     args, unknown_args = _parse(argv)
     log.info(f"args={args}\nunknown_args={unknown_args}")
     lr = float(args.lr)
+    hl_sizes = [int(s) for s in args.hl_sizes.split(",")]
     _download_training_data(args.bucket, args.data_dir)
     data = pd.read_parquet(f"{args.data_dir}/train.parquet")
     train, val = _split(data, args.folds)
     train_gen = _data_gen(train, args.data_dir, args.batch_size, shuffle=True)
     val_gen = _data_gen(val, args.data_dir, args.batch_size, shuffle=False)
-    model = _model(dropout=args.dropout, lr=lr, pooling=args.pooling)
+    model = _model(
+        dropout=args.dropout, lr=lr, pooling=args.pooling, hidden_layer_sizes=hl_sizes
+    )
     model.summary()
     filepath = "best_model.h5"
     history = model.fit(

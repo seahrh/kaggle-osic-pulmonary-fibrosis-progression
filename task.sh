@@ -24,4 +24,5 @@ gcloud ai-platform jobs submit training "${JOB_NAME}" \
         --lr="${LR}" \
         --rlr_patience="${RLR_PATIENCE}" \
         --es_patience="${ES_PATIENCE}" \
-        --pooling="${POOLING}"
+        --pooling="${POOLING}" \
+        --hl_sizes="${HL_SIZES}"
