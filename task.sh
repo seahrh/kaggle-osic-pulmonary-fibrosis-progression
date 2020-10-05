@@ -22,7 +22,6 @@ gcloud ai-platform jobs submit training "${JOB_NAME}" \
         --data_dir="${DATA_DIR}" \
         --epochs="${EPOCHS}" \
         --lr="${LR}" \
-        --rlr_patience="${RLR_PATIENCE}" \
         --es_patience="${ES_PATIENCE}" \
         --pooling="${POOLING}" \
         --hl_sizes="${HL_SIZES}"

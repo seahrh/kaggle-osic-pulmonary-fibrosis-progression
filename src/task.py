@@ -73,13 +73,6 @@ def _parse(argv):
         help="Number of folds for cross-validation",
     )
     parser.add_argument(
-        "--rlr_patience",
-        dest="rlr_patience",
-        default=1,
-        type=int,
-        help="ReduceLrOnPlateau patience",
-    )
-    parser.add_argument(
         "--es_patience",
         dest="es_patience",
         default=2,
@@ -201,11 +194,8 @@ class ModelCheckpointInGcs(keras.callbacks.ModelCheckpoint):
                     out.write(inp.read())
 
 
-def _callbacks(job_dir: str, filepath: str, rlr_patience: int, es_patience: int):
+def _callbacks(job_dir: str, filepath: str, es_patience: int):
     return [
-        keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss", patience=rlr_patience, factor=0.5, verbose=1
-        ),
         keras.callbacks.EarlyStopping(
             monitor="val_loss", patience=es_patience, verbose=1
         ),
@@ -255,12 +245,7 @@ def _main(argv=None):
         train_gen,
         epochs=args.epochs,
         validation_data=val_gen,
-        callbacks=_callbacks(
-            args.job_dir,
-            filepath,
-            rlr_patience=args.rlr_patience,
-            es_patience=args.es_patience,
-        ),
+        callbacks=_callbacks(args.job_dir, filepath, es_patience=args.es_patience,),
     )
     df = pd.DataFrame(history.history)
     df["epoch"] = history.epoch
